@@ -135,7 +135,10 @@ async function syncRecords(client: Cloudflare, params: SyncParams) {
 	const toCreate = targetIPs.filter((ip) => !existingMap.has(ip));
 	const toDelete = existingRecords.filter((r) => r.content && !desiredIPs.has(r.content));
 
-	if (toCreate.length === 0 && toDelete.length === 0) return;
+	if (toCreate.length === 0 && toDelete.length === 0) {
+		console.log(`No changes needed for ${type} record ${domain}`);
+		return;
+	}
 
 	// 3. Execute Updates (Create-before-Delete)
 	await Promise.all(
