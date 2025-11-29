@@ -1,13 +1,13 @@
-import { isIPv4, isIPv6 } from "node:net";
-import Cloudflare from "cloudflare";
-import type { RecordResponse } from "cloudflare/resources/dns/records";
+import { isIPv4, isIPv6 } from 'node:net';
+import Cloudflare from 'cloudflare';
+import type { RecordResponse } from 'cloudflare/resources/dns/records';
 
 // --- Shared Types ---
 
 interface SyncParams {
 	zoneId: string;
 	domain: string;
-	type: "A" | "AAAA";
+	type: 'A' | 'AAAA';
 	targetIPs: string[];
 }
 
@@ -15,7 +15,7 @@ interface SyncParams {
 
 interface ZoneConfig {
 	records: {
-		[domain: string]: ("A" | "AAAA")[];
+		[domain: string]: ('A' | 'AAAA')[];
 	};
 }
 
@@ -45,7 +45,7 @@ export default {
 		try {
 			config = JSON.parse(env.APP_CONFIG);
 		} catch (error) {
-			console.error("Critical: Failed to parse APP_CONFIG JSON.", error);
+			console.error('Critical: Failed to parse APP_CONFIG JSON.', error);
 			return;
 		}
 
@@ -59,12 +59,9 @@ export default {
 
 			try {
 				const activeIPs = new Set<string>();
-				for await (const clientConn of client.zeroTrust.tunnels.cloudflared.connections.get(
-					tunnelId,
-					{
-						account_id: config.account_id,
-					},
-				)) {
+				for await (const clientConn of client.zeroTrust.tunnels.cloudflared.connections.get(tunnelId, {
+					account_id: config.account_id,
+				})) {
 					for (const conn of clientConn.conns || []) {
 						if (conn.origin_ip) activeIPs.add(conn.origin_ip);
 					}
@@ -75,28 +72,26 @@ export default {
 
 				// Iterate over zones and records
 				for (const [zoneId, zoneConfig] of Object.entries(tunnelInfo.zones)) {
-					for (const [domain, recordTypes] of Object.entries(
-						zoneConfig.records,
-					)) {
+					for (const [domain, recordTypes] of Object.entries(zoneConfig.records)) {
 						const syncTasks: Promise<void>[] = [];
 
-						if (recordTypes.includes("A")) {
+						if (recordTypes.includes('A')) {
 							syncTasks.push(
 								syncRecords(client, {
 									zoneId,
 									domain,
-									type: "A",
+									type: 'A',
 									targetIPs: ipv4s,
 								}),
 							);
 						}
 
-						if (recordTypes.includes("AAAA")) {
+						if (recordTypes.includes('AAAA')) {
 							syncTasks.push(
 								syncRecords(client, {
 									zoneId,
 									domain,
-									type: "AAAA",
+									type: 'AAAA',
 									targetIPs: ipv6s,
 								}),
 							);
@@ -138,9 +133,7 @@ async function syncRecords(client: Cloudflare, params: SyncParams) {
 	// 2. Calculate Diffs
 	const desiredIPs = new Set(targetIPs);
 	const toCreate = targetIPs.filter((ip) => !existingMap.has(ip));
-	const toDelete = existingRecords.filter(
-		(r) => r.content && !desiredIPs.has(r.content),
-	);
+	const toDelete = existingRecords.filter((r) => r.content && !desiredIPs.has(r.content));
 
 	if (toCreate.length === 0 && toDelete.length === 0) return;
 

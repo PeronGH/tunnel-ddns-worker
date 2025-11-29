@@ -9,7 +9,7 @@
 	"compatibility_date": "2025-11-28",
 	"compatibility_flags": ["nodejs_compat"],
 	"observability": {
-		"enabled": true
+		"enabled": true,
 	},
 	/**
 	 * Smart Placement
@@ -42,6 +42,6 @@
 	 */
 	// "services": [{ "binding": "MY_SERVICE", "service": "my-service" }]
 	"triggers": {
-		"crons": ["0 * * * *"]
-	}
+		"crons": ["0 * * * *"],
+	},
 }
