@@ -34,87 +34,84 @@ interface AppConfig {
 
 interface Env {
 	CLOUDFLARE_API_TOKEN: string;
-	APP_CONFIG: AppConfig;
+	APP_CONFIG: string;
 }
 
 // --- Worker Entry Point ---
 
 export default {
-	async scheduled(_event, env, ctx) {
-		ctx.waitUntil(runSync(env));
+	async scheduled(_event, env, _ctx) {
+		let config: AppConfig;
+		try {
+			config = JSON.parse(env.APP_CONFIG);
+		} catch (e) {
+			const message = e instanceof Error ? e.message : String(e);
+			console.error(`Critical: Failed to parse APP_CONFIG JSON. ${message}`);
+			return;
+		}
+
+		const client = new Cloudflare({
+			apiToken: env.CLOUDFLARE_API_TOKEN,
+		});
+
+		// Iterate over tunnels
+		for (const [tunnelId, tunnelInfo] of Object.entries(config.tunnels)) {
+			console.log(`Processing Tunnel: ${tunnelId}`);
+
+			try {
+				const activeIPs = new Set<string>();
+				for await (const clientConn of client.zeroTrust.tunnels.cloudflared.connections.get(
+					tunnelId,
+					{
+						account_id: config.account_id,
+					},
+				)) {
+					for (const conn of clientConn.conns || []) {
+						if (conn.origin_ip) activeIPs.add(conn.origin_ip);
+					}
+				}
+
+				const ipv4s = [...activeIPs].filter(isIPv4);
+				const ipv6s = [...activeIPs].filter(isIPv6);
+
+				// Iterate over zones and records
+				for (const [zoneId, zoneConfig] of Object.entries(tunnelInfo.zones)) {
+					for (const [domain, recordTypes] of Object.entries(
+						zoneConfig.records,
+					)) {
+						const syncTasks: Promise<void>[] = [];
+
+						if (recordTypes.includes("A")) {
+							syncTasks.push(
+								syncRecords(client, {
+									zoneId,
+									domain,
+									type: "A",
+									targetIPs: ipv4s,
+								}),
+							);
+						}
+
+						if (recordTypes.includes("AAAA")) {
+							syncTasks.push(
+								syncRecords(client, {
+									zoneId,
+									domain,
+									type: "AAAA",
+									targetIPs: ipv6s,
+								}),
+							);
+						}
+
+						await Promise.all(syncTasks);
+					}
+				}
+			} catch (err) {
+				console.error(`Error processing tunnel ${tunnelId}: ${err}`);
+			}
+		}
 	},
 } satisfies ExportedHandler<Env>;
-
-/**
- * Orchestrates the synchronization process.
- */
-async function runSync(env: Env): Promise<void> {
-	console.log("Starting Tunnel Sync...");
-
-	const config = env.APP_CONFIG;
-	const client = new Cloudflare({
-		apiToken: env.CLOUDFLARE_API_TOKEN,
-	});
-
-	// Iterate over tunnels
-	for (const [tunnelId, tunnelInfo] of Object.entries(config.tunnels)) {
-		console.log(`Processing Tunnel: ${tunnelId}`);
-
-		try {
-			const activeIPs = new Set<string>();
-			for await (const clientConn of client.zeroTrust.tunnels.cloudflared.connections.get(
-				tunnelId,
-				{
-					account_id: config.account_id,
-				},
-			)) {
-				for (const conn of clientConn.conns || []) {
-					if (conn.origin_ip) activeIPs.add(conn.origin_ip);
-				}
-			}
-
-			const ipv4s = [...activeIPs].filter(isIPv4);
-			const ipv6s = [...activeIPs].filter(isIPv6);
-
-			// Iterate over zones and records
-			for (const [zoneId, zoneConfig] of Object.entries(tunnelInfo.zones)) {
-				for (const [domain, recordTypes] of Object.entries(
-					zoneConfig.records,
-				)) {
-					const syncTasks: Promise<void>[] = [];
-
-					if (recordTypes.includes("A")) {
-						syncTasks.push(
-							syncRecords(client, {
-								zoneId,
-								domain,
-								type: "A",
-								targetIPs: ipv4s,
-							}),
-						);
-					}
-
-					if (recordTypes.includes("AAAA")) {
-						syncTasks.push(
-							syncRecords(client, {
-								zoneId,
-								domain,
-								type: "AAAA",
-								targetIPs: ipv6s,
-							}),
-						);
-					}
-
-					await Promise.all(syncTasks);
-				}
-			}
-		} catch (err) {
-			console.error(`Error processing tunnel ${tunnelId}: ${err}`);
-		}
-	}
-
-	console.log("Sync Complete.");
-}
 
 /**
  * Syncs DNS records for a specific domain/type combination.
