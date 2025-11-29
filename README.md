@@ -4,6 +4,11 @@ Automatically syncs Cloudflare Tunnel connection IPs to DNS records.
 
 ## Setup
 
+Create a Cloudflare API token with these permissions:
+
+- Account > Cloudflare Tunnel > Read
+- Zone > DNS > Edit
+
 Set secrets using wrangler:
 
 ```bash
