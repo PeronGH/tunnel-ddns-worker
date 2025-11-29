@@ -34,7 +34,7 @@ interface AppConfig {
 
 interface Env {
 	CLOUDFLARE_API_TOKEN: string;
-	APP_CONFIG: string;
+	APP_CONFIG: AppConfig;
 }
 
 // --- Worker Entry Point ---
@@ -51,14 +51,7 @@ export default {
 async function runSync(env: Env): Promise<void> {
 	console.log("Starting Tunnel Sync...");
 
-	let config: AppConfig;
-	try {
-		config = JSON.parse(env.APP_CONFIG);
-	} catch (e) {
-		console.error(`Critical: Failed to parse APP_CONFIG JSON. ${e}`);
-		return;
-	}
-
+	const config = env.APP_CONFIG;
 	const client = new Cloudflare({
 		apiToken: env.CLOUDFLARE_API_TOKEN,
 	});
