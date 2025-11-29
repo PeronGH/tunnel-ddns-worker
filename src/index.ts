@@ -88,23 +88,31 @@ async function runSync(env: Env): Promise<void> {
 				for (const [domain, recordTypes] of Object.entries(
 					zoneConfig.records,
 				)) {
+					const syncTasks: Promise<void>[] = [];
+
 					if (recordTypes.includes("A")) {
-						await syncRecords(client, {
-							zoneId,
-							domain,
-							type: "A",
-							targetIPs: ipv4s,
-						});
+						syncTasks.push(
+							syncRecords(client, {
+								zoneId,
+								domain,
+								type: "A",
+								targetIPs: ipv4s,
+							}),
+						);
 					}
 
 					if (recordTypes.includes("AAAA")) {
-						await syncRecords(client, {
-							zoneId,
-							domain,
-							type: "AAAA",
-							targetIPs: ipv6s,
-						});
+						syncTasks.push(
+							syncRecords(client, {
+								zoneId,
+								domain,
+								type: "AAAA",
+								targetIPs: ipv6s,
+							}),
+						);
 					}
+
+					await Promise.all(syncTasks);
 				}
 			}
 		} catch (err) {
@@ -148,20 +156,24 @@ async function syncRecords(client: Cloudflare, params: SyncParams) {
 	if (toCreate.length === 0 && toDelete.length === 0) return;
 
 	// 3. Execute Updates (Create-before-Delete)
-	for (const ip of toCreate) {
-		console.log(`Creating ${type} record for ${domain} -> ${ip}`);
-		await client.dns.records.create({
-			zone_id: zoneId,
-			name: domain,
-			type,
-			content: ip,
-			ttl: 60,
-			proxied: false,
-		});
-	}
+	await Promise.all(
+		toCreate.map((ip) => {
+			console.log(`Creating ${type} record for ${domain} -> ${ip}`);
+			return client.dns.records.create({
+				zone_id: zoneId,
+				name: domain,
+				type,
+				content: ip,
+				ttl: 60,
+				proxied: false,
+			});
+		}),
+	);
 
-	for (const record of toDelete) {
-		console.log(`Deleting ${type} record for ${domain} -> ${record.content}`);
-		await client.dns.records.delete(record.id, { zone_id: zoneId });
-	}
+	await Promise.all(
+		toDelete.map((record) => {
+			console.log(`Deleting ${type} record for ${domain} -> ${record.content}`);
+			return client.dns.records.delete(record.id, { zone_id: zoneId });
+		}),
+	);
 }
