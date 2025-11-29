@@ -44,9 +44,8 @@ export default {
 		let config: AppConfig;
 		try {
 			config = JSON.parse(env.APP_CONFIG);
-		} catch (e) {
-			const message = e instanceof Error ? e.message : String(e);
-			console.error(`Critical: Failed to parse APP_CONFIG JSON. ${message}`);
+		} catch (error) {
+			console.error("Critical: Failed to parse APP_CONFIG JSON.", error);
 			return;
 		}
 
@@ -106,8 +105,8 @@ export default {
 						await Promise.all(syncTasks);
 					}
 				}
-			} catch (err) {
-				console.error(`Error processing tunnel ${tunnelId}: ${err}`);
+			} catch (error) {
+				console.error(`Error processing tunnel ${tunnelId}:`, error);
 			}
 		}
 	},
