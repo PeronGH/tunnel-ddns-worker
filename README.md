@@ -4,15 +4,17 @@ Automatically syncs Cloudflare Tunnel connection IPs to DNS records.
 
 ## Setup
 
-Set secrets in Cloudflare dashboard (Worker Settings → Variables → Encrypt):
+Set secrets using wrangler:
 
-**CLOUDFLARE_API_TOKEN**
+```bash
+wrangler secret put CLOUDFLARE_API_TOKEN
+# Enter your API token when prompted
 
+wrangler secret put APP_CONFIG
+# Enter your config JSON when prompted
 ```
-your-cloudflare-api-token
-```
 
-**APP_CONFIG** (JSON, minified to one line)
+**APP_CONFIG** format:
 
 ```json
 {
@@ -48,7 +50,11 @@ APP_CONFIG={"account_id":"...","tunnels":{...}}
 
 ## Deploy
 
-Push to GitHub - automatic deployment via Cloudflare GitHub integration.
+1. Fork this repo
+2. Create a Cloudflare Worker
+3. Connect your fork via Cloudflare's GitHub integration
+4. Set the secrets in Cloudflare dashboard
+5. Push to your fork to deploy
 
 ## How It Works
 
